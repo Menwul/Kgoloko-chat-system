@@ -880,8 +880,8 @@ def logout():
 
 # Admin routes
 ADMIN_CREDENTIALS = {
-    'admin': {
-        'password': 'admin123',  # Change this in production!
+    'superadmin001': {
+        'password': 'superadmin99',  # Change this in production!
         'role': 'admin',
         'email': 'admin@kgoloko.com'
     },
