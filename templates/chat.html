@@ -1,0 +1,375 @@
+{% extends "base.html" %}
+
+{% block title %}Chat - Kgoloko Chatroom{% endblock %}
+
+{% block content %}
+<div class="container-fluid chat-container p-0">
+    <div class="row g-0 h-100">
+        <!-- Sidebar -->
+        <div class="col-md-3 col-lg-2 sidebar p-3">
+            <div class="d-flex flex-column h-100">
+                <div class="text-center mb-4">
+                    <h4 class="text-primary-green">
+                        <i class="fas fa-comments me-2"></i>Kgoloko School
+                    </h4>
+                    <p class="text-muted small">Welcome, {{ username }} ({{ role }})</p>
+                    <p class="text-muted small">Your ID: {{ session.unique_id }}</p>
+                </div>
+                
+                <div class="mb-4">
+                    <h6 class="text-primary-green">Rooms</h6>
+                    <div class="list-group" id="room-list">
+                        {% if rooms %}
+                            {% for room in rooms %}
+                            <a href="#" class="list-group-item list-group-item-action room-link" data-room="{{ room.name }}">
+                                <i class="fas fa-door-open me-2"></i>{{ room.name }}
+                                <small class="d-block text-muted">{{ room.description }}</small>
+                            </a>
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-muted text-center">No rooms available</div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                {% if role == 'admin' %}
+                <div class="mb-4">
+                    <h6 class="text-primary-green">Admin</h6>
+                    <div class="list-group">
+                        <a href="{{ url_for('admin_users') }}" class="list-group-item list-group-item-action">
+                            <i class="fas fa-users-cog me-2"></i>User Management
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <div class="mb-4">
+                    <h6 class="text-primary-green">Online Users <span class="badge bg-primary-green" id="online-count">0</span></h6>
+                    <div class="online-users" id="online-users-list">
+                        <!-- Online users will be populated here -->
+                    </div>
+                </div>
+                
+                <div class="mt-auto">
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('user_settings') }}" class="btn btn-outline-primary-green">
+                            <i class="fas fa-cog me-2"></i>Settings
+                        </a>
+                        <a href="{{ url_for('logout') }}" class="btn btn-outline-danger">
+                            <i class="fas fa-sign-out-alt me-2"></i>Logout
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Chat Area -->
+        <div class="col-md-9 col-lg-10">
+            <div class="d-flex flex-column h-100">
+                <div class="room-title d-flex justify-content-between align-items-center p-3 border-bottom bg-light">
+                    <h5 class="mb-0" id="current-room">Select a room to start chatting</h5>
+                    <div class="d-flex align-items-center">
+                        <span class="badge bg-primary text-white me-2" id="user-count">0 users</span>
+                        <button class="btn btn-sm btn-outline-primary" id="search-toggle">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="d-none p-2 bg-light border-bottom" id="search-box">
+                    <div class="input-group">
+                        <input type="text" class="form-control" placeholder="Search messages..." id="search-input">
+                        <button class="btn btn-primary" id="search-btn">Search</button>
+                    </div>
+                </div>
+                
+                <div class="chat-messages flex-grow-1 p-3" id="chat-messages" style="overflow-y: auto; background-color: #f8f9fa;">
+                    <div class="text-center text-muted mt-5">
+                        <i class="fas fa-comments fa-3x mb-3"></i>
+                        <p>Select a room to start chatting</p>
+                    </div>
+                </div>
+                
+                <div class="p-3 border-top bg-white">
+                    <form id="message-form" class="d-flex">
+                        <input type="text" class="form-control me-2 message-input" placeholder="Type your message..." id="message-input" disabled>
+                        
+                        <!-- File upload button -->
+                        <div class="btn-group me-2">
+                            <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" id="file-upload-btn" disabled>
+                                <i class="fas fa-paperclip"></i>
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li>
+                                    <label class="dropdown-item" for="image-upload">
+                                        <i class="fas fa-image me-2"></i>Image
+                                    </label>
+                                    <input type="file" id="image-upload" accept="image/*" class="d-none" disabled>
+                                </li>
+                                <li>
+                                    <label class="dropdown-item" for="video-upload">
+                                        <i class="fas fa-video me-2"></i>Video
+                                    </label>
+                                    <input type="file" id="video-upload" accept="video/*" class="d-none" disabled>
+                                </li>
+                                <li>
+                                    <label class="dropdown-item" for="audio-upload">
+                                        <i class="fas fa-microphone me-2"></i>Voice Record
+                                    </label>
+                                    <input type="file" id="audio-upload" accept="audio/*" class="d-none" disabled>
+                                </li>
+                                <li>
+                                    <label class="dropdown-item" for="document-upload">
+                                        <i class="fas fa-file-alt me-2"></i>Document
+                                    </label>
+                                    <input type="file" id="document-upload" accept=".pdf,.txt,.doc,.docx" class="d-none" disabled>
+                                </li>
+                            </ul>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary" id="send-button" disabled>
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </form>
+                    
+                    <!-- Voice recording interface -->
+                    <div class="mt-2 d-none" id="voice-recorder">
+                        <div class="d-flex align-items-center">
+                            <button class="btn btn-outline-primary me-2" id="start-recording">
+                                <i class="fas fa-microphone"></i> Start Recording
+                            </button>
+                            <button class="btn btn-outline-danger me-2 d-none" id="stop-recording">
+                                <i class="fas fa-stop"></i> Stop
+                            </button>
+                            <div id="recording-timer" class="text-muted">00:00</div>
+                        </div>
+                        <audio id="recorded-audio" class="mt-2 d-none" controls></audio>
+                    </div>
+                    
+                    <!-- File preview -->
+                    <div id="file-preview" class="mt-2 d-none">
+                        <div class="card">
+                            <div class="card-body py-2">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span id="file-name">No file selected</span>
+                                    <button type="button" class="btn-close" id="remove-file"></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .sidebar {
+        background-color: #bff7ba;
+        border-right: 1px solid #dee2e6;
+        height: 100vh;
+        overflow-y: auto;
+    }
+    
+    .room-link {
+        cursor: pointer;
+    }
+    
+    .room-link.active {
+        background-color: #007bff;
+        color: white;
+        border-color: #007bff;
+    }
+    
+    .room-link.active small {
+        color: white !important;
+    }
+    
+    .message-bubble {
+        max-width: 80%;
+        padding: 10px 15px;
+        border-radius: 18px;
+        margin-bottom: 10px;
+        position: relative;
+    }
+    
+    .message-sent {
+        background-color: #007bff;
+        color: white;
+        margin-left: auto;
+    }
+    
+    .message-received {
+        background-color: grey;
+        color: #212529;
+    }
+    
+    .message-time {
+        font-size: 0.75rem;
+        opacity: 0.8;
+    }
+    
+    .online-indicator {
+        width: 10px;
+        height: 10px;
+        background-color: #28a745;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 8px;
+    }
+    
+    .chat-messages {
+        background-color: white;
+    }
+    
+    .media-container {
+        margin-top: 8px;
+        max-width: 100%;
+        position: relative;
+    }
+    
+    .media-container img {
+        max-width: 100%;
+        max-height: 300px;
+        border-radius: 8px;
+        cursor: pointer;
+    }
+    
+    .media-container video {
+        max-width: 100%;
+        max-height: 300px;
+        border-radius: 8px;
+    }
+    
+    .media-audio-player {
+        width: 100%;
+        margin-top: 8px;
+        background-color: #f8f9fa;
+        border-radius: 20px;
+        padding: 10px;
+    }
+    
+    .media-download-btn {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        background-color: rgba(0, 0, 0, 0.7);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        opacity: 0;
+        transition: opacity 0.3s;
+        z-index: 10;
+    }
+    
+    .media-container:hover .media-download-btn {
+        opacity: 1;
+    }
+    
+    .audio-download-btn, .document-download-btn {
+        position: relative;
+        top: 0;
+        right: 0;
+        margin-left: 10px;
+        opacity: 1;
+    }
+    
+    .audio-controls {
+        display: flex;
+        align-items: center;
+        margin-top: 8px;
+    }
+    
+    .document-container {
+        display: flex;
+        align-items: center;
+        padding: 10px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        margin-top: 8px;
+    }
+    
+    .document-icon {
+        font-size: 24px;
+        margin-right: 10px;
+    }
+    
+    .media-modal .modal-content {
+        background-color: transparent;
+        border: none;
+    }
+    
+    .media-modal .modal-body {
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    .media-modal img {
+        max-width: 100%;
+        max-height: 80vh;
+    }
+    
+    .audio-fallback, .document-fallback {
+        display: flex;
+        align-items: center;
+        padding: 10px;
+        background-color: #f8f9fa;
+        border-radius: 20px;
+        margin-top: 8px;
+    }
+    
+    .audio-fallback button, .document-fallback button {
+        margin-left: 10px;
+    }
+
+    .reply-reference {
+        border-left: 3px solid #007bff;
+        padding-left: 10px;
+        margin-bottom: 10px;
+    }
+
+    .reply-preview {
+        font-size: 0.85rem;
+        color: #6c757d;
+        max-width: 200px;
+    }
+
+    .message-actions {
+        display: none;
+        margin-top: 5px;
+    }
+
+    .message-bubble:hover .message-actions {
+        display: block;
+    }
+</style>
+
+<!-- Modal for viewing images -->
+<div class="modal fade media-modal" id="imageModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-body">
+                <img src="" alt="Enlarged view" id="modal-image">
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="download-modal-image">
+                    <i class="fas fa-download me-1"></i> Download
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+{% endblock %}
